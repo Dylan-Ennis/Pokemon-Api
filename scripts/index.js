@@ -8,7 +8,7 @@ const Pokemon = require('../models/Pokemon')
 async function main() {
     const start = performance.now();
     console.log('start')
-    
+
     let dbConnection
     try {
         dbConnection = await mongoose.connect(process.env.MONGO_URI)
@@ -34,12 +34,12 @@ async function getPokemon() {
         const response = await fetch(url)
         const data = await response.json()
 
-        const pokemonUrls = data.results.map(pokemon => pokemon.url)
-    
-        for (const pokemonUrl of pokemonUrls) {
-            await processPokemon(pokemonUrl)
-        }
+        const promises = data.results.map(pokemon => {
+            return processPokemon(pokemon.url)
+        })
 
+        const pokemonToSave = await Promise.all(promises)
+        await Pokemon.insertMany(pokemonToSave)
         url = data.next
     }
 }
@@ -48,16 +48,14 @@ async function processPokemon(url) {
     try {
         const response = await fetch(url)
         const data = await response.json()
-    
-        const pokemon = {
+
+        return {
             pokemonId: data.id,
             name: data.name,
             image: data.sprites.front_default,
             height: data.height,
             weight: data.weight
         }
-    
-        await new Pokemon(pokemon).save()
     } catch (error) {
         console.log('error processing pokemon', error)
     }
